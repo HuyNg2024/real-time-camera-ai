@@ -85,6 +85,7 @@ run_cleanup.ps1  Delete old detections/events/alerts/snapshots
 ```text
 GET  /dashboard
 GET  /health
+GET  /runtime-config
 GET  /active-events
 GET  /webcam-summary
 GET  /latest-detections

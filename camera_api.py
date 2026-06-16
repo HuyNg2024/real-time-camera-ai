@@ -271,6 +271,21 @@ DASHBOARD_HTML = """
     }
     .mini-item:last-child { border-bottom: 0; padding-bottom: 0; }
     .mini-value { color: var(--teal); font-weight: 700; }
+    .config-list {
+      display: grid;
+      padding: 8px 16px;
+    }
+    .config-row {
+      display: grid;
+      grid-template-columns: minmax(130px, .75fr) minmax(0, 1.25fr);
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--line);
+      font-size: 13px;
+    }
+    .config-row:last-child { border-bottom: 0; }
+    .config-key { color: var(--muted); }
+    .config-value { color: #dbe2ec; overflow-wrap: anywhere; text-align: right; }
     .snapshot {
       min-height: 276px;
       display: grid;
@@ -386,6 +401,10 @@ DASHBOARD_HTML = """
           <section>
             <div class="section-head"><h2>Latest Snapshot</h2><span class="hint" id="snapshot-title">No snapshot selected</span></div>
             <div class="snapshot" id="snapshot-preview"><div class="snapshot-empty">Snapshot appears here when an event has an image.</div></div>
+          </section>
+          <section>
+            <div class="section-head"><h2>Runtime Config</h2><span class="hint">Current API environment</span></div>
+            <div class="config-list" id="runtime-config"></div>
           </section>
           <section>
             <div class="section-head"><h2>Webcam Summary - Last Hour</h2><span class="hint">Grouped by object</span></div>
@@ -633,9 +652,30 @@ DASHBOARD_HTML = """
         : '<div class="muted">No data</div>';
     }
 
+    function renderRuntimeConfig(config) {
+      const rows = [
+        ['API', config.api],
+        ['Database', config.database],
+        ['Camera ID', config.camera_id],
+        ['Postgres Logging', config.yolo_postgres],
+        ['Every N Frames', config.every_n_frames],
+        ['Event Gap Seconds', config.event_gap_seconds],
+        ['Save Snapshots', config.save_snapshots],
+        ['Snapshot Dir', config.snapshot_dir],
+        ['Latest Detection', config.latest_detection_at]
+      ];
+      document.getElementById('runtime-config').innerHTML = rows.map(([key, value]) => `
+        <div class="config-row">
+          <div class="config-key">${cell(key)}</div>
+          <div class="config-value">${cell(value)}</div>
+        </div>
+      `).join('');
+    }
+
     async function load() {
-      const [health, alerts, active, summary, events, detections, rules] = await Promise.all([
+      const [health, config, alerts, active, summary, events, detections, rules] = await Promise.all([
         fetch('/health').then(r => r.json()),
+        fetch('/runtime-config').then(r => r.json()),
         fetch('/alerts').then(r => r.json()),
         fetch('/active-events').then(r => r.json()),
         fetch('/webcam-summary').then(r => r.json()),
@@ -653,6 +693,7 @@ DASHBOARD_HTML = """
       updateKpis(health, alerts, active, summary, detections);
       updateSnapshot([...active, ...events]);
       renderInsights(alerts, summary);
+      renderRuntimeConfig(config);
 
       renderTable('alerts', viewAlerts, [
         { key: 'type', label: 'Type', render: v => `<span class="pill new">${cell(v)}</span>` },
@@ -772,6 +813,24 @@ def health() -> dict[str, Any]:
         "new_alerts": row["new_alerts"],
         "active_events": row["active_events"],
         "latest_detection_at": row["latest_detection_at"],
+    }
+
+
+@app.get("/runtime-config")
+def runtime_config() -> dict[str, Any]:
+    rows = query("SELECT MAX(created_at) AS latest_detection_at FROM detections")
+    return {
+        "api": "ok",
+        "database": DB_CONFIG["dbname"],
+        "database_host": DB_CONFIG["host"],
+        "database_port": DB_CONFIG["port"],
+        "camera_id": os.getenv("YOLO_CAMERA_ID", "webcam_01"),
+        "yolo_postgres": os.getenv("YOLO_POSTGRES", "0"),
+        "every_n_frames": os.getenv("YOLO_POSTGRES_EVERY_N_FRAMES", "30"),
+        "event_gap_seconds": os.getenv("YOLO_POSTGRES_EVENT_GAP_SECONDS", "10"),
+        "save_snapshots": os.getenv("YOLO_POSTGRES_SAVE_SNAPSHOTS", "1"),
+        "snapshot_dir": os.getenv("YOLO_POSTGRES_SNAPSHOT_DIR", "runs/postgres_snapshots"),
+        "latest_detection_at": rows[0]["latest_detection_at"],
     }
 
 

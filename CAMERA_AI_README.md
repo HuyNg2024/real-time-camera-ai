@@ -60,6 +60,7 @@ http://127.0.0.1:8000/health
 GET  /
 GET  /dashboard
 GET  /health
+GET  /runtime-config
 GET  /active-events
 GET  /webcam-summary
 GET  /latest-detections
