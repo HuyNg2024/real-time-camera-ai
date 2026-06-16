@@ -86,6 +86,24 @@ Test-Step "API data endpoints" {
     "alerts=$($alerts.Count), rules=$($rules.Count), events=$($events.Count)"
 }
 
+Test-Step "CSV export endpoints" {
+    $exports = @(
+        "/export/detections.csv?limit=3",
+        "/export/events.csv?limit=3",
+        "/export/alerts.csv?limit=3"
+    )
+    foreach ($path in $exports) {
+        $response = Invoke-WebRequest "$ApiBase$path" -TimeoutSec 5 -UseBasicParsing
+        if ($response.StatusCode -ne 200) {
+            throw "$path returned $($response.StatusCode)"
+        }
+        if (-not "$($response.Headers["Content-Type"])".StartsWith("text/csv")) {
+            throw "$path did not return CSV"
+        }
+    }
+    "detections, events, alerts CSV exports are available"
+}
+
 Test-Step "Recent detections query" {
     $count = psql -U $env:PGUSER -d $env:PGDATABASE -t -A -c "SELECT COUNT(*) FROM detections WHERE created_at >= NOW() - INTERVAL '10 minutes';"
     "$count detection(s) in last 10 minutes"

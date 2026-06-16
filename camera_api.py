@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import csv
 import os
+from io import StringIO
 from pathlib import Path
 from typing import Any
 
 import psycopg2
 import psycopg2.extras
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from pydantic import BaseModel, Field
 
 
@@ -122,6 +124,20 @@ DASHBOARD_HTML = """
     }
     h1 { margin: 0; font-size: 22px; line-height: 1.2; }
     .toolbar { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 13px; }
+    .export-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .export-actions a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 7px 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 650;
+    }
+    .export-actions a:hover { border-color: rgba(45, 212, 191, .55); color: var(--teal); text-decoration: none; }
     .search {
       width: min(360px, 34vw);
       border: 1px solid var(--line);
@@ -336,6 +352,11 @@ DASHBOARD_HTML = """
           <div class="hint">YOLO detections, object events, snapshots and alerts</div>
         </div>
         <div class="toolbar">
+          <div class="export-actions">
+            <a href="/export/detections.csv?limit=1000">Detections CSV</a>
+            <a href="/export/events.csv?limit=1000">Events CSV</a>
+            <a href="/export/alerts.csv?limit=1000">Alerts CSV</a>
+          </div>
           <input class="search" id="filter" type="search" placeholder="Filter object name">
           <span id="updated">Loading...</span>
         </div>
@@ -786,6 +807,23 @@ def execute(sql: str, params: tuple[Any, ...] = ()) -> int:
             return cur.rowcount
 
 
+def csv_response(rows: list[dict[str, Any]], filename: str) -> Response:
+    output = StringIO()
+    fieldnames = list(rows[0].keys()) if rows else ["message"]
+    writer = csv.DictWriter(output, fieldnames=fieldnames, lineterminator="\n")
+    writer.writeheader()
+    if rows:
+        writer.writerows(rows)
+    else:
+        writer.writerow({"message": "no data"})
+
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @app.get("/", response_class=HTMLResponse)
 def root() -> str:
     return DASHBOARD_HTML
@@ -1022,6 +1060,54 @@ def events(limit: int = 50) -> list[dict[str, Any]]:
         """,
         (limit,),
     )
+
+
+@app.get("/export/detections.csv")
+def export_detections(limit: int = 1000) -> Response:
+    limit = min(max(limit, 1), 10000)
+    rows = query(
+        """
+        SELECT id, camera_id, object_name, track_id, confidence, x1, y1, x2, y2,
+               image_path, model_name, frame_id, created_at
+        FROM detections
+        ORDER BY created_at DESC
+        LIMIT %s
+        """,
+        (limit,),
+    )
+    return csv_response(rows, "detections.csv")
+
+
+@app.get("/export/events.csv")
+def export_events(limit: int = 1000) -> Response:
+    limit = min(max(limit, 1), 10000)
+    rows = query(
+        """
+        SELECT id, camera_id, object_name, track_id, status, detection_count,
+               max_confidence, last_confidence, snapshot_path, start_time, end_time
+        FROM detection_events
+        ORDER BY end_time DESC
+        LIMIT %s
+        """,
+        (limit,),
+    )
+    return csv_response(rows, "events.csv")
+
+
+@app.get("/export/alerts.csv")
+def export_alerts(limit: int = 1000) -> Response:
+    limit = min(max(limit, 1), 10000)
+    rows = query(
+        """
+        SELECT id, camera_id, alert_type, object_name, track_id, event_id, message,
+               confidence, snapshot_path, status, created_at
+        FROM alerts
+        ORDER BY created_at DESC
+        LIMIT %s
+        """,
+        (limit,),
+    )
+    return csv_response(rows, "alerts.csv")
 
 
 @app.get("/snapshots/{path:path}")

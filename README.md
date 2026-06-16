@@ -91,6 +91,9 @@ GET  /active-events
 GET  /webcam-summary
 GET  /latest-detections
 GET  /events
+GET  /export/detections.csv
+GET  /export/events.csv
+GET  /export/alerts.csv
 GET  /alerts
 GET  /alerts/new
 POST /alerts/{alert_id}/ack
