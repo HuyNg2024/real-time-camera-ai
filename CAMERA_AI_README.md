@@ -69,6 +69,12 @@ Open:
 http://127.0.0.1:8000/dashboard
 ```
 
+Seed demo data so the dashboard has detections, events, and alerts without a webcam:
+
+```powershell
+.\run_seed_demo.ps1
+```
+
 The PostgreSQL container uses host port `15432`. To make host YOLO write to the Docker database:
 
 ```powershell
@@ -142,6 +148,7 @@ run_api.ps1      Start FastAPI dashboard
 run_yolo.ps1     Start YOLO tracking with PostgreSQL logging
 run_docker.ps1   Start PostgreSQL and API dashboard with Docker Compose
 run_yolo_docker_db.ps1  Start YOLO tracking against the Docker PostgreSQL database
+run_seed_demo.ps1  Insert demo detections, events, and alerts
 run_cleanup.ps1  Delete old detections/events/alerts/snapshots
 test_system.ps1  Check Python, PostgreSQL, API, dashboard, and endpoints
 ```
