@@ -248,7 +248,10 @@ DASHBOARD_HTML = """
       <div class="grid">
         <div class="stack">
           <section>
-            <div class="section-head"><h2>Alerts</h2><span class="hint">Acknowledge from here</span></div>
+            <div class="section-head">
+              <h2>Alerts</h2>
+              <button id="ack-all" onclick="ackAllAlerts()">ACK All New</button>
+            </div>
             <div class="table-wrap"><table id="alerts"></table></div>
           </section>
           <section>
@@ -320,6 +323,19 @@ DASHBOARD_HTML = """
       await load();
     }
 
+    async function ackAllAlerts() {
+      const button = document.getElementById('ack-all');
+      button.disabled = true;
+      button.textContent = 'ACKing...';
+      try {
+        await fetch('/alerts/ack-all', { method: 'POST' });
+        await load();
+      } finally {
+        button.disabled = false;
+        button.textContent = 'ACK All New';
+      }
+    }
+
     function filtered(rows) {
       const q = document.getElementById('filter').value.trim().toLowerCase();
       if (!q) return rows;
@@ -341,6 +357,7 @@ DASHBOARD_HTML = """
       document.getElementById('kpi-latest').textContent = latest ? latest.object_name : '-';
       document.getElementById('kpi-latest-detail').textContent = latest ? `conf ${fmt(latest.confidence)} at frame ${cell(latest.frame_id)}` : 'Waiting for data';
       document.getElementById('db-status').textContent = health.database || 'unknown';
+      document.getElementById('ack-all').disabled = newAlerts.length === 0;
     }
 
     function updateSnapshot(rows) {
@@ -519,6 +536,18 @@ def acknowledge_alert(alert_id: int) -> dict[str, Any]:
     if rowcount == 0:
         raise HTTPException(status_code=404, detail="Alert not found")
     return {"id": alert_id, "status": "acknowledged"}
+
+
+@app.post("/alerts/ack-all")
+def acknowledge_all_alerts() -> dict[str, Any]:
+    rowcount = execute(
+        """
+        UPDATE alerts
+        SET status = 'acknowledged'
+        WHERE status = 'new'
+        """
+    )
+    return {"updated": rowcount, "status": "acknowledged"}
 
 
 @app.get("/webcam-summary")
