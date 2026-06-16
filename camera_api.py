@@ -436,6 +436,14 @@ DASHBOARD_HTML = """
       await load();
     }
 
+    async function deleteRule(id, objectName) {
+      if (!window.confirm(`Delete alert rule for ${objectName}?`)) {
+        return;
+      }
+      await fetch(`/alert-rules/${id}`, { method: 'DELETE' });
+      await load();
+    }
+
     function slug(value) {
       return String(value || '')
         .trim()
@@ -573,7 +581,7 @@ DASHBOARD_HTML = """
         { key: 'min_confidence', label: 'Min Conf', render: fmt },
         { key: 'min_duration_seconds', label: 'Min Sec' },
         { key: 'enabled', label: 'Status', render: v => `<span class="pill ${v ? 'acknowledged' : 'closed'}">${v ? 'enabled' : 'disabled'}</span>` },
-        { key: 'id', label: 'Action', render: (id, row) => `<button onclick="toggleRule(${id}, ${row.enabled})">${row.enabled ? 'Disable' : 'Enable'}</button>` }
+        { key: 'id', label: 'Action', render: (id, row) => `<button onclick="toggleRule(${id}, ${row.enabled})">${row.enabled ? 'Disable' : 'Enable'}</button> <button onclick="deleteRule(${id}, '${String(row.object_name).replace(/'/g, "\\'")}')">Delete</button>` }
       ]);
 
       renderTable('events', viewEvents, [
@@ -748,6 +756,20 @@ def update_alert_rule(rule_id: int, patch: AlertRulePatch) -> dict[str, Any]:
     if not rows:
         raise HTTPException(status_code=404, detail="Alert rule not found")
     return rows[0]
+
+
+@app.delete("/alert-rules/{rule_id}")
+def delete_alert_rule(rule_id: int) -> dict[str, Any]:
+    rowcount = execute(
+        """
+        DELETE FROM alert_rules
+        WHERE id = %s
+        """,
+        (rule_id,),
+    )
+    if rowcount == 0:
+        raise HTTPException(status_code=404, detail="Alert rule not found")
+    return {"id": rule_id, "deleted": True}
 
 
 @app.get("/alerts")

@@ -95,6 +95,7 @@ POST /alerts/ack-all
 GET  /alert-rules
 POST /alert-rules
 PATCH /alert-rules/{rule_id}
+DELETE /alert-rules/{rule_id}
 GET  /snapshots/{filename}
 ```
 
