@@ -1,6 +1,6 @@
 # Real-Time Camera AI
 
-[![Camera AI CI](https://github.com/HuyNg2024/real-time-camera-ai-2/actions/workflows/ci.yml/badge.svg)](https://github.com/HuyNg2024/real-time-camera-ai-2/actions/workflows/ci.yml)
+[![Camera AI CI](https://github.com/HuyNg2024/real-time-camera-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/HuyNg2024/real-time-camera-ai/actions/workflows/ci.yml)
 
 Real-time webcam object detection and tracking built on Ultralytics YOLO, PostgreSQL, and FastAPI.
 
