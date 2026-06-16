@@ -69,11 +69,11 @@ Open:
 http://127.0.0.1:8000/dashboard
 ```
 
-The PostgreSQL container uses host port `5433`. To make host YOLO write to the Docker database:
+The PostgreSQL container uses host port `15432`. To make host YOLO write to the Docker database:
 
 ```powershell
 $env:PGHOST = "127.0.0.1"
-$env:PGPORT = "5433"
+$env:PGPORT = "15432"
 $env:PGDATABASE = "camera_ai"
 $env:PGUSER = "postgres"
 $env:PGPASSWORD = "postgres"
