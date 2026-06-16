@@ -114,6 +114,8 @@ Invoke-RestMethod -Method Post http://127.0.0.1:8000/alert-rules `
   -Body '{"camera_id":"*","object_name":"cell phone","alert_type":"phone_detected","min_confidence":0.7,"min_duration_seconds":0,"enabled":true,"message_template":"{object_name} detected on {camera_id}"}'
 ```
 
+Rules can also be created from the `Alert Rules` panel on `/dashboard`.
+
 ## Notes
 
 - This project is based on the Ultralytics YOLO codebase.

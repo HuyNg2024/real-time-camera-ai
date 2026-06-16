@@ -190,8 +190,41 @@ DASHBOARD_HTML = """
       font-weight: 650;
     }
     button:hover { background: rgba(45, 212, 191, .2); }
+    button:disabled { cursor: not-allowed; opacity: .45; }
     a { color: var(--teal); text-decoration: none; }
     a:hover { text-decoration: underline; }
+    .rule-form {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: #15171b;
+    }
+    .rule-form label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    .rule-form input, .rule-form select {
+      width: 100%;
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 10px;
+      color: var(--text);
+      background: var(--panel);
+      outline: none;
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 13px;
+    }
+    .rule-form .wide { grid-column: 1 / -1; }
+    .rule-form .actions { display: flex; align-items: end; gap: 10px; }
+    .form-status { color: var(--muted); font-size: 12px; align-self: center; }
     .snapshot {
       min-height: 276px;
       display: grid;
@@ -213,6 +246,7 @@ DASHBOARD_HTML = """
       .toolbar { width: 100%; justify-content: space-between; }
       .search { width: 100%; }
       .cards { grid-template-columns: 1fr; }
+      .rule-form { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -297,6 +331,36 @@ DASHBOARD_HTML = """
           </section>
           <section>
             <div class="section-head"><h2>Alert Rules</h2><span class="hint">Object rules from database</span></div>
+            <form class="rule-form" id="rule-form">
+              <label>Object
+                <input name="object_name" placeholder="person" required>
+              </label>
+              <label>Alert Type
+                <input name="alert_type" placeholder="person_detected" required>
+              </label>
+              <label>Camera
+                <input name="camera_id" value="*" required>
+              </label>
+              <label>Min Confidence
+                <input name="min_confidence" type="number" min="0" max="1" step="0.01" value="0.50" required>
+              </label>
+              <label>Min Duration Seconds
+                <input name="min_duration_seconds" type="number" min="0" step="1" value="0" required>
+              </label>
+              <label>Status
+                <select name="enabled">
+                  <option value="true">Enabled</option>
+                  <option value="false">Disabled</option>
+                </select>
+              </label>
+              <label class="wide">Message Template
+                <input name="message_template" value="{object_name} detected on {camera_id}" required>
+              </label>
+              <div class="actions wide">
+                <button type="submit">Save Rule</button>
+                <span class="form-status" id="rule-status"></span>
+              </div>
+            </form>
             <div class="table-wrap"><table id="rules"></table></div>
           </section>
           <section>
@@ -369,6 +433,51 @@ DASHBOARD_HTML = """
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: !enabled })
       });
+      await load();
+    }
+
+    function slug(value) {
+      return String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+    }
+
+    async function saveRule(event) {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const status = document.getElementById('rule-status');
+      const data = new FormData(form);
+      const objectName = String(data.get('object_name') || '').trim();
+      const alertType = String(data.get('alert_type') || '').trim() || `${slug(objectName)}_detected`;
+      const payload = {
+        camera_id: String(data.get('camera_id') || '*').trim(),
+        object_name: objectName,
+        alert_type: alertType,
+        min_confidence: Number(data.get('min_confidence')),
+        min_duration_seconds: Number(data.get('min_duration_seconds')),
+        enabled: data.get('enabled') === 'true',
+        message_template: String(data.get('message_template') || '{object_name} detected on {camera_id}')
+      };
+
+      status.textContent = 'Saving...';
+      const response = await fetch('/alert-rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        status.textContent = 'Save failed';
+        return;
+      }
+      status.textContent = 'Saved';
+      form.reset();
+      form.elements.camera_id.value = '*';
+      form.elements.min_confidence.value = '0.50';
+      form.elements.min_duration_seconds.value = '0';
+      form.elements.enabled.value = 'true';
+      form.elements.message_template.value = '{object_name} detected on {camera_id}';
       await load();
     }
 
@@ -488,6 +597,16 @@ DASHBOARD_HTML = """
     }
 
     document.getElementById('filter').addEventListener('input', load);
+    document.getElementById('rule-form').addEventListener('submit', saveRule);
+    document.querySelector('#rule-form [name="object_name"]').addEventListener('input', event => {
+      const alertType = document.querySelector('#rule-form [name="alert_type"]');
+      if (!alertType.dataset.edited) {
+        alertType.value = `${slug(event.target.value)}_detected`;
+      }
+    });
+    document.querySelector('#rule-form [name="alert_type"]').addEventListener('input', event => {
+      event.target.dataset.edited = '1';
+    });
     load();
     setInterval(load, 5000);
   </script>
